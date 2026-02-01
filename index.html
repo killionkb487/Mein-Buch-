@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wie ich mich verliebte · Hoe ik verliefd werd</title>
+  <style>
+    :root{
+      --bg:#1a1a1a;
+      --paper:#fdf6e3;
+      --ink:#4e342e;
+      --muted:#a1887f;
+      --cover:#5d4037;
+      --coverEdge:#3e2723;
+      --btn:#8d6e63;
+      --btnHover:#6d4c41;
+    }
+
+    body{
+      background: var(--bg);
+      font-family: Georgia, serif;
+      display:flex; justify-content:center; align-items:center;
+      min-height:100vh; margin:0; overflow:hidden;
+      color: var(--ink);
+    }
+
+    .book-container{
+      width: 360px;
+      height: 600px;
+      position: relative;
+      perspective: 1500px;
+    }
+
+    .page{
+      width:100%; height:100%;
+      position:absolute;
+      border-radius: 5px 15px 15px 5px;
+      transform-origin:left;
+      transition: transform 0.8s ease-in-out;
+      display:none;
+      flex-direction:column;
+      justify-content:space-between;
+      align-items:center;
+      padding: 36px 22px;
+      box-sizing:border-box;
+      background: var(--paper);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      text-align:center;
+      border-left: 2px solid #dcd6c5;
+    }
+
+    .page.active{ display:flex; animation: flipIn 0.8s forwards; }
+
+    .cover{
+      background: var(--cover);
+      color: #d7ccc8;
+      z-index: 100;
+      border-left: 10px solid var(--coverEdge);
+      justify-content:center;
+      gap: 10px;
+    }
+
+    .illustration{
+      width:100%;
+      height: 250px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      filter: sepia(0.25);
+    }
+
+    /* Strichzeichnung Look */
+    svg.lineart{
+      width: 100%;
+      max-width: 290px;
+      height: 250px;
+      overflow: visible;
+    }
+    .stroke{
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.95;
+      stroke-dasharray: 900;
+      stroke-dashoffset: 900;
+      animation: draw 1.4s ease forwards;
+    }
+
+    /* leichte Bewegung */
+    .float{
+      animation: floaty 3.2s ease-in-out infinite;
+      transform-origin: center;
+    }
+
+    .text{
+      width:100%;
+      flex-grow:1;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap: 12px;
+      line-height: 1.35;
+      font-weight: 500;
+    }
+
+    .nl{ font-size: 1.25rem; font-style: italic; }
+    .de{ font-size: 1.05rem; color: #6b4a42; }
+
+    .bible-ref{
+      font-size: 1rem;
+      font-weight: bold;
+      color: var(--muted);
+      margin-top: 10px;
+      line-height: 1.7;
+    }
+
+    .btn{
+      background: var(--btn);
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: bold;
+      font-family: inherit;
+      font-size: 1rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      transition: 0.3s;
+      margin-top: 10px;
+    }
+    .btn:hover{ background: var(--btnHover); transform: scale(1.05); }
+
+    .hint{
+      margin: 0;
+      font-size: 0.95rem;
+      opacity: 0.92;
+      font-style: italic;
+      line-height: 1.35;
+    }
+
+    @keyframes flipIn{
+      from{ transform: rotateY(90deg); opacity:0; }
+      to{ transform: rotateY(0deg); opacity:1; }
+    }
+    @keyframes draw{
+      to{ stroke-dashoffset: 0; }
+    }
+    @keyframes floaty{
+      0%,100%{ transform: translateY(0px); }
+      50%{ transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Lege Tedalo.mp3 in denselben Ordner wie diese index.html -->
+<audio id="bgMusic" loop preload="auto">
+  <source src="Tedalo.mp3" type="audio/mpeg">
+</audio>
+
+<div class="book-container" id="book"></div>
+
+<script>
+  // 29 Seiten: oben NL, unten DE
+  const PAGES = [
+    { nl:"Op de dag dat ik je ontmoette", de:"An dem Tag, an dem ich dich traf", art:"meet" },
+    { nl:"had ik geen flauw idee", de:"hatte ich keine Ahnung", art:"think" },
+    { nl:"dat jij ooit alles voor mij zou zijn", de:"dass du einmal alles für mich sein würdest", art:"heart" },
+    { nl:"dat alles met een simpele ‘hallo’ zou beginnen", de:"dass alles mit einem einfachen „Hallo“ anfangen würde", art:"hello" },
+    { nl:"Langzaam begon je glimlach me te betoveren", de:"Langsam fing dein Lächeln an, mich zu verzaubern", art:"smile" },
+    { nl:"en je speelse zelf veroverde mijn hart", de:"und dein verspieltes Ich eroberte mein Herz", art:"spark" },
+    { nl:"Ik had nooit verwacht", de:"Ich hätte nie erwartet", art:"think" },
+    { nl:"iemand te vinden", de:"jemanden zu finden", art:"search" },
+    { nl:"die mijn leven", de:"der mein Leben", art:"path" },
+    { nl:"zo volledig kon veranderen", de:"so vollkommen verändern könnte", art:"change" },
+    { nl:"Met elke dag", de:"Mit jedem Tag", art:"sun" },
+    { nl:"met elke lach", de:"mit jedem Lachen", art:"smile" },
+    { nl:"met elke omhelzing", de:"mit jeder Umarmung", art:"hug" },
+    { nl:"en elke kus", de:"und jedem Kuss", art:"kiss" },
+    { nl:"werd je meer", de:"wurdest du mehr", art:"heart" },
+    { nl:"dan alleen iemand van wie ik hield.", de:"als nur ein Mensch, den ich liebte.", art:"heart" },
+    { nl:"Je werd mijn reden", de:"Du wurdest mein Grund", art:"anchor" },
+    { nl:"mijn hoop", de:"meine Hoffnung", art:"star" },
+    { nl:"mijn licht in het donker.", de:"mein Licht in der Dunkelheit.", art:"light" },
+    { nl:"Degene die mij echt kende", de:"Die, die mich wahrhaftig kannte", art:"eye" },
+    { nl:"degene die het meest van mij hield", de:"die, die mich am meisten liebte", art:"heart" },
+    { nl:"degene die ik wilde.", de:"die, die ich wollte.", art:"hand" },
+    { nl:"Het maakt niet uit of ik het wist", de:"Es ist egal, ob ich es wusste", art:"note" },
+    { nl:"ik wilde je — en ik hield van je.", de:"ich wollte dich — und ich liebte dich.", art:"heart" },
+    { nl:"Ik hou van je. Ik hou van ons kleine koninkrijk.", de:"Ich liebe dich. Ich liebe unser kleines Königreich.", art:"crown" },
+    { nl:"Ik hou van wat ik nu met jou heb.", de:"Ich liebe, was ich jetzt mit dir habe.", art:"home" },
+    { nl:"En ik zal houden van wat we morgen samen zullen hebben.", de:"Und ich werde lieben, was wir morgen zusammen haben werden.", art:"tomorrow" },
+    {
+      nl:"Zoek dit op in de Bijbel 👉",
+      de:"Schlag das in der Bibel nach 👉",
+      art:"bible",
+      refs: [
+        "Hooglied 4:9",
+        "Hooglied 3:4",
+        "Prediker (Kohelet) 4:9–10"
+      ]
+    },
+    { nl:"Ik hou van mijn mele 🍎", de:"Ich liebe meine mele 🍎", art:"apple", last:true }
+  ];
+
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function svgArt(kind){
+    const wrap = (paths) => `
+      <svg class="lineart float" viewBox="0 0 300 250" aria-hidden="true">
+        ${paths}
+      </svg>
+    `;
+
+    const heart = wrap(`
+      <path class="stroke" d="M150 205 C90 165, 55 135, 55 95 C55 70, 75 50, 100 50 C120 50, 138 62, 150 78 C162 62, 180 50, 200 50 C225 50, 245 70, 245 95 C245 135, 210 165, 150 205 Z"/>
+    `);
+
+    const meet = wrap(`
+      <path class="stroke" d="M80 170 C90 120, 110 95, 140 85 C170 75, 205 85, 220 120 C235 155, 210 190, 170 195 C130 200, 95 195, 80 170 Z"/>
+      <path class="stroke" d="M115 145 C135 130, 165 130, 185 145"/>
+      <path class="stroke" d="M105 120 C110 110, 125 110, 130 120"/>
+      <path class="stroke" d="M170 120 C175 110, 190 110, 195 120"/>
+      <path class="stroke" d="M55 210 C90 195, 120 190, 150 190 C180 190, 210 195, 245 210"/>
+    `);
+
+    const think = wrap(`
+      <path class="stroke" d="M95 165 C90 120, 120 90, 155 90 C190 90, 220 120, 215 165 C210 205, 100 205, 95 165 Z"/>
+      <path class="stroke" d="M135 210 C135 230, 115 235, 105 228"/>
+      <path class="stroke" d="M210 70 C235 60, 255 75, 248 95 C245 105, 235 112, 225 110"/>
+      <path class="stroke" d="M238 40 C248 35, 258 45, 254 55"/>
+      <path class="stroke" d="M262 60 C272 58, 276 70, 268 76"/>
+    `);
+
+    const hello = wrap(`
+      <path class="stroke" d="M80 170 C90 120, 110 95, 140 85 C170 75, 205 85, 220 120 C235 155, 210 190, 170 195 C130 200, 95 195, 80 170 Z"/>
+      <path class="stroke" d="M125 145 C140 135, 160 135, 175 145"/>
+      <path class="stroke" d="M55 95 C55 60, 85 40, 115 50"/>
+      <path class="stroke" d="M235 95 C245 70, 270 65, 285 80"/>
+      <path class="stroke" d="M35 210 C70 195, 110 190, 150 190 C190 190, 230 195, 265 210"/>
+    `);
+
+    const smile = wrap(`
+      <path class="stroke" d="M85 155 C85 110, 120 80, 150 80 C180 80, 215 110, 215 155 C215 200, 180 215, 150 215 C120 215, 85 200, 85 155 Z"/>
+      <path class="stroke" d="M120 150 C135 175, 165 175, 180 150"/>
+      <path class="stroke" d="M110 125 C115 115, 130 115, 135 125"/>
+      <path class="stroke" d="M165 125 C170 115, 185 115, 190 125"/>
+      <path class="stroke" d="M70 65 C90 45, 110 40, 130 45"/>
+      <path class="stroke" d="M230 65 C210 45, 190 40, 170 45"/>
+    `);
+
+    const spark = wrap(`
+      <path class="stroke" d="M150 60 L160 95 L195 105 L160 115 L150 150 L140 115 L105 105 L140 95 Z"/>
+      <path class="stroke" d="M90 165 C110 135, 140 125, 150 125 C160 125, 190 135, 210 165"/>
+      <path class="stroke" d="M110 190 C125 175, 140 170, 150 170 C160 170, 175 175, 190 190"/>
+    `);
+
+    const search = wrap(`
+      <circle class="stroke" cx="130" cy="120" r="55"/>
+      <path class="stroke" d="M170 160 L225 215"/>
+      <path class="stroke" d="M105 120 C110 105, 125 95, 140 95"/>
+    `);
+
+    const path = wrap(`
+      <path class="stroke" d="M60 210 C90 150, 120 170, 150 120 C180 70, 210 90, 240 40"/>
+      <path class="stroke" d="M235 40 L255 55"/>
+      <path class="stroke" d="M240 40 L260 35"/>
+      <path class="stroke" d="M60 210 L80 200"/>
+      <path class="stroke" d="M60 210 L70 230"/>
+    `);
+
+    const change = wrap(`
+      <path class="stroke" d="M90 120 C95 85, 125 60, 160 60 C195 60, 225 85, 230 120"/>
+      <path class="stroke" d="M230 120 L210 105"/>
+      <path class="stroke" d="M230 120 L250 105"/>
+      <path class="stroke" d="M210 130 C205 165, 175 190, 140 190 C105 190, 75 165, 70 130"/>
+      <path class="stroke" d="M70 130 L90 145"/>
+      <path class="stroke" d="M70 130 L50 145"/>
+    `);
+
+    const sun = wrap(`
+      <circle class="stroke" cx="150" cy="125" r="40"/>
+      <path class="stroke" d="M150 30 L150 60"/>
+      <path class="stroke" d="M150 190 L150 220"/>
+      <path class="stroke" d="M55 125 L85 125"/>
+      <path class="stroke" d="M215 125 L245 125"/>
+      <path class="stroke" d="M85 60 L105 80"/>
+      <path class="stroke" d="M195 170 L215 190"/>
+      <path class="stroke" d="M215 60 L195 80"/>
+      <path class="stroke" d="M105 170 L85 190"/>
+    `);
+
+    const hug = wrap(`
+      <path class="stroke" d="M95 170 C95 120, 120 90, 150 90 C180 90, 205 120, 205 170"/>
+      <path class="stroke" d="M110 175 C120 150, 135 140, 150 140 C165 140, 180 150, 190 175"/>
+      <path class="stroke" d="M85 165 C100 155, 110 145, 115 130"/>
+      <path class="stroke" d="M215 165 C200 155, 190 145, 185 130"/>
+    `);
+
+    const kiss = wrap(`
+      <path class="stroke" d="M110 150 C120 120, 135 110, 150 110 C165 110, 180 120, 190 150"/>
+      <path class="stroke" d="M135 150 C145 160, 155 160, 165 150"/>
+      <path class="stroke" d="M85 200 C110 185, 130 180, 150 180 C170 180, 190 185, 215 200"/>
+      <path class="stroke" d="M205 90 C225 80, 245 95, 238 115 C234 126, 222 132, 212 128"/>
+    `);
+
+    const anchor = wrap(`
+      <path class="stroke" d="M150 40 V160"/>
+      <circle class="stroke" cx="150" cy="65" r="12"/>
+      <path class="stroke" d="M105 160 C110 195, 130 210, 150 210 C170 210, 190 195, 195 160"/>
+      <path class="stroke" d="M95 160 H205"/>
+    `);
+
+    const star = wrap(`
+      <path class="stroke" d="M150 55 L167 105 L220 105 L177 137 L192 190 L150 158 L108 190 L123 137 L80 105 L133 105 Z"/>
+      <path class="stroke" d="M60 210 C95 195, 120 190, 150 190 C180 190, 205 195, 240 210"/>
+    `);
+
+    const light = wrap(`
+      <path class="stroke" d="M150 40 C120 40, 95 65, 95 95 C95 120, 110 135, 120 150 C130 165, 130 175, 130 190 H170 C170 175, 170 165, 180 150 C190 135, 205 120, 205 95 C205 65, 180 40, 150 40 Z"/>
+      <path class="stroke" d="M125 210 H175"/>
+      <path class="stroke" d="M135 225 H165"/>
+    `);
+
+    const eye = wrap(`
+      <path class="stroke" d="M60 125 C90 85, 120 65, 150 65 C180 65, 210 85, 240 125 C210 165, 180 185, 150 185 C120 185, 90 165, 60 125 Z"/>
+      <circle class="stroke" cx="150" cy="125" r="28"/>
+      <circle class="stroke" cx="150" cy="125" r="10"/>
+    `);
+
+    const hand = wrap(`
+      <path class="stroke" d="M95 170 C95 140, 105 115, 120 115 C135 115, 135 140, 135 150"/>
+      <path class="stroke" d="M135 150 C135 130, 150 115, 165 115 C180 115, 180 140, 180 155"/>
+      <path class="stroke" d="M180 155 C180 135, 195 125, 210 130 C225 135, 220 170, 210 190"/>
+      <path class="stroke" d="M95 170 C100 205, 130 215, 155 215 C180 215, 200 210, 210 190"/>
+    `);
+
+    const note = wrap(`
+      <path class="stroke" d="M95 60 H205 V205 H95 Z"/>
+      <path class="stroke" d="M115 95 H185"/>
+      <path class="stroke" d="M115 125 H175"/>
+      <path class="stroke" d="M115 155 H165"/>
+    `);
+
+    const crown = wrap(`
+      <path class="stroke" d="M80 170 L100 90 L140 135 L170 85 L200 135 L240 90 L260 170 Z"/>
+      <path class="stroke" d="M85 170 H255"/>
+      <circle class="stroke" cx="100" cy="90" r="8"/>
+      <circle class="stroke" cx="170" cy="85" r="8"/>
+      <circle class="stroke" cx="240" cy="90" r="8"/>
+    `);
+
+    const home = wrap(`
+      <path class="stroke" d="M80 140 L150 80 L220 140"/>
+      <path class="stroke" d="M95 135 V205 H205 V135"/>
+      <path class="stroke" d="M135 205 V160 H165 V205"/>
+      <path class="stroke" d="M140 120 C150 110, 160 110, 170 120"/>
+    `);
+
+    const tomorrow = wrap(`
+      <path class="stroke" d="M90 175 C110 135, 140 120, 150 120 C160 120, 190 135, 210 175"/>
+      <path class="stroke" d="M120 175 C130 160, 140 152, 150 152 C160 152, 170 160, 180 175"/>
+      <path class="stroke" d="M75 90 C95 70, 120 60, 150 60 C180 60, 205 70, 225 90"/>
+      <path class="stroke" d="M150 45 V60"/>
+    `);
+
+    const bible = wrap(`
+      <path class="stroke" d="M90 70 C105 60, 125 60, 140 70 V205 C125 195, 105 195, 90 205 Z"/>
+      <path class="stroke" d="M210 70 C195 60, 175 60, 160 70 V205 C175 195, 195 195, 210 205 Z"/>
+      <path class="stroke" d="M150 85 V190"/>
+      <path class="stroke" d="M135 120 H165"/>
+    `);
+
+    const apple = wrap(`
+      <path class="stroke" d="M150 80 C140 60, 145 45, 165 40"/>
+      <path class="stroke" d="M150 85 C175 55, 210 60, 225 95 C245 145, 210 210, 150 210 C90 210, 55 145, 75 95 C90 60, 125 55, 150 85 Z"/>
+      <path class="stroke" d="M190 65 C205 55, 225 55, 235 70"/>
+    `);
+
+    const map = {
+      heart, meet, think, hello, smile, spark, search, path, change, sun, hug, kiss,
+      anchor, star, light, eye, hand, note, crown, home, tomorrow, bible, apple
+    };
+    return map[kind] || heart;
+  }
+
+  const book = document.getElementById("book");
+
+  // COVER (oben NL, unten DE)
+  book.insertAdjacentHTML("beforeend", `
+    <div class="page cover active" id="p0">
+      <div class="text" style="justify-content:center; gap:14px;">
+        <div class="nl" style="font-size:1.9rem; font-style:normal; font-weight:bold; color:#d7ccc8;">
+          Hoe ik verliefd werd
+        </div>
+        <div class="de" style="font-size:1.35rem; color:#d7ccc8; opacity:.95;">
+          Wie ich mich verliebte
+        </div>
+      </div>
+
+      <div class="illustration">${svgArt("crown")}</div>
+
+      <p class="hint">
+        Een verhaal speciaal voor jou<br>
+        <span style="opacity:.95;">Eine Geschichte nur für dich</span>
+      </p>
+
+      <button class="btn" onclick="startBook()">
+        Open me<br><span style="font-weight:normal;opacity:.95;">Öffne mich</span>
+      </button>
+    </div>
+  `);
+
+  // 29 Seiten
+  PAGES.forEach((p, idx) => {
+    const id = `p${idx+1}`;
+    const nextId = (idx === PAGES.length - 1) ? null : `p${idx+2}`;
+    const btnLabel = p.last
+      ? "Lees me nog eens ↩<br><span style='font-weight:normal;opacity:.95'>Lies mich nochmal ↩</span>"
+      : "Next Page →";
+
+    const refsHtml = p.refs ? `
+      <div class="bible-ref">
+        ${p.refs.map(r => `${escapeHtml(r)}<br>`).join("")}
+      </div>
+    ` : "";
+
+    book.insertAdjacentHTML("beforeend", `
+      <div class="page" id="${id}">
+        <div class="illustration">${svgArt(p.art)}</div>
+
+        <div class="text">
+          <div class="nl">„${escapeHtml(p.nl)}“</div>
+          <div class="de">„${escapeHtml(p.de)}“</div>
+          ${refsHtml}
+        </div>
+
+        <button class="btn" onclick="${p.last ? "restartBook()" : `nextPage('${id}','${nextId}')`}">
+          ${btnLabel}
+        </button>
+      </div>
+    `);
+  });
+
+  function startBook(){
+    const audio = document.getElementById("bgMusic");
+    audio.currentTime = 0; // immer neu starten
+    audio.play().catch(()=>{});
+    nextPage("p0","p1");
+  }
+
+  function nextPage(curr, next){
+    document.getElementById(curr).classList.remove("active");
+    const nextElem = document.getElementById(next);
+    nextElem.style.display = "flex";
+    setTimeout(()=> nextElem.classList.add("active"), 10);
+  }
+
+  // Beim "Lies mich nochmal": Musik stoppen, zurück zum Cover (ohne Reload),
+  // dann startet sie wieder NEU, wenn du auf "Open me" klickst.
+  function restartBook(){
+    const audio = document.getElementById("bgMusic");
+    audio.pause();
+    audio.currentTime = 0;
+
+    document.querySelectorAll(".page").forEach(p => {
+      p.classList.remove("active");
+      p.style.display = "none";
+    });
+
+    const cover = document.getElementById("p0");
+    cover.style.display = "flex";
+    setTimeout(()=> cover.classList.add("active"), 10);
+  }
+</script>
+
+</body>
+</html>
